@@ -1,0 +1,17 @@
+For more information check out slit.lit instead.
+
+REQUIREMENTS
+
+* awk
+* /bin/sh
+
+USAGE
+
+Write your code in 'slit syntax' and then:
+
+	cat file.lit | slit [root name] > file.c
+
+INSTALL
+
+ * Run make to 'compile'.
+ * Move the resulting file slit into your $PATH.

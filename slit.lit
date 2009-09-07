@@ -1,0 +1,131 @@
+
+                               SLIT
+                    Simple literate programming
+                         Sebastian A. Liem
+
+Version: 2.1, 2009-03-16
+ 
+Literate programming is a programming strategy where focus is placed
+on the reasoning about the program rather then the implementation.
+Code and comment is interchanged.
+
+A program in the literate style is written as an essay with pieces of 
+code interleaved. The structure of the essay and, in extension, the 
+reasoning determine the order. The tyranny of the compiler is over.
+
+Still the code need to be assembled into the compiler readable form to
+be usable. This is what slit does. It's a UNIX style filter program
+and is commonly invoked as
+
+    cat slit.lit | slit root > slit
+
+The argument given to slit is the name of the so-called root piece and
+is the start for the assembly of the result.
+
+Each bit of code spread around the text is called a piece. A piece is 
+framed by two tags - a begin and a end tag. Slit doesn't support 
+escaping commands so just look at this document for examples.
+
+There is a third tag, the include tag, which is replaced by the code 
+piece referenced. It is assume that each tag is on their own line.
+
+
+IMPLEMENTATION
+
+The program works in three steps. Get the code pieces from the
+input. Pick the root piece. Handle all the includes.
+
+The code pieces is retrieved by an awk pattern-action statement.
+The begin tag is the pattern and the action is the extraction and 
+storage of the piece.
+
+BEGIN PIECE get piece
+/BEGIN_PIECE/ {
+
+ INCLUDE PIECE get name
+
+ INCLUDE PIECE read piece data
+
+}
+END PIECE
+
+Note that the tag in the pattern is escaped. This is because slit itself
+doesn't support escaped tags.
+
+The pieces is stored in an array indexed by their name. This name
+might be a single word, or it might be many. That's why we loop $3,
+$4, ..., $NF.
+
+BEGIN PIECE get name
+n = $3
+for(i = 4; i <= NF; i++)
+    n = n " " $i
+END PIECE
+
+After we got the name we read, and store, line after line until the end
+tag is found.
+
+
+BEGIN PIECE read piece data
+pieces[n] = ""
+
+getline
+while($0 != "END_PIECE") {
+    pieces[n] = pieces[n] $0 "\n"
+    getline
+}
+END PIECE
+
+When we have found and stored all the pieces of code we have to produce
+the output. We simply pick our root piece and handle all include tags
+in it. After that it just the matter of printing the result.
+
+BEGIN PIECE end action
+END {
+
+ root = pieces[rootname]
+
+ INCLUDE PIECE handle include tags
+
+ print root
+}
+END PIECE
+
+Include tags is simply handled by running a search, grab the specified
+name and then substitute the tag with the proper piece. If the name
+specify a none-existing piece the tag is just removed.
+
+The pieces being included is indented as the tag. That's what the gsub() 
+call does. Note that it's a local copy that's being modified - a piece
+might be included several times.
+
+BEGIN PIECE handle include tags
+while(match(root, "[[:blank:]]*INCLUDE_PIECE [[:print:]]*") != 0) {
+    s = substr(root, RSTART, RLENGTH)
+    split(s, a, "INCLUDE_PIECE ")
+    if(a[2] in pieces) {
+        p = pieces[a[2]]
+        gsub("\n", "\n" a[1], p)
+        sub("INCLUDE_PIECE " a[2], p, root)
+    } else
+        sub("INCLUDE_PIECE " a[2], "", root)
+}
+END PIECE
+
+Now we put it all together. The awk script is wrapped in a shell script
+which handle the command-line options. I don't know how to do it in awk.
+
+BEGIN PIECE root
+#!/bin/sh
+
+if [ $# -lt 1 ]; then
+ echo "Usage: slit [root piece]" 1>& 2;
+ exit 1
+fi
+
+awk -v rootname="$1" '
+INCLUDE PIECE get piece
+
+INCLUDE PIECE end action
+'
+END PIECE
