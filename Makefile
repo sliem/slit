@@ -1,7 +1,7 @@
 default: slit
 
 slit:
-	cat slit.lit | ./slit-bootstrap.awk root | sed -e 's/_/ /' > slit
+	cat slit.lit | ./slit-bootstrap root | sed -e 's/_/ /' > slit
 	chmod +x ./slit
 		
 clean:
